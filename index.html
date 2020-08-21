@@ -60,7 +60,7 @@ var resultCanvas =  document.getElementById('result');
 var keepIntegrating = false;
 
 
-navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
 .then(function(stream) {
     video.srcObject = stream;
     video.play();
