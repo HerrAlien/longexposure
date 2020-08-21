@@ -1,0 +1,161 @@
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="theme-color" content="#ffffff" />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="#ffffff" />
+
+    <link rel="icon" type="image/png" href="images/ae-icon.png" />
+
+    <link rel="manifest" href="manifest.json" />
+
+    <link rel="apple-touch-icon" href="images/ae-icon-144.png" />
+    <link rel="icon" type="image/png" href="images/ae-icon-144.png">
+    <link rel="apple-touch-startup-image" href="images/ae-icon-512.png" />
+    <style>
+        .hidden {
+            display: none;
+        }
+        #preview, #frame {
+        }
+        input {
+            height: 40px;
+            width: 100%;
+            margin-left: 0;
+            margin-right: 0;
+            font-size: 30px;
+            margin-top: 30px;
+        }
+        body {
+            text-align: center;
+            background: #000000;
+        }
+
+    </style>
+</head>
+<body>
+    <video id="preview"></video>
+    <br>
+    <canvas id="frame" class="hidden"></canvas>
+    <br>
+    <canvas id="result" class="hidden"></canvas>
+    <input type="number" id="exposure" placeholder="[exposure time, in sec.]"/>
+    <input type="number" id="delay" placeholder="[start capture delay, in sec.]"/>
+    <input type="button" id="start" value="Start"/>
+</body>
+</html>
+
+
+<script>
+var video = document.getElementById('preview');
+
+var width = video.clientWidth;
+var height = video.clientHeight;
+
+var frame =  document.getElementById('frame');
+var resultCanvas =  document.getElementById('result');
+
+var keepIntegrating = false;
+
+
+navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+.then(function(stream) {
+    video.srcObject = stream;
+    video.play();
+})
+.catch(function(err) {
+        console.log("An error occurred: " + err);
+});
+
+var resultDataArr = 0;
+var frameDataArr = 0;
+
+var resultContext = 0;
+var resultData = 0;
+
+var context = 0;
+
+function addFrame() {
+
+    if (!keepIntegrating) {
+        return;
+    }
+     
+    context.drawImage(video, 0, 0, width, height);
+
+    var frameData = context.getImageData(0, 0, width, height);
+    frameDataArr = frameData.data;
+
+    for (var i = 0; i < resultData.data.length; i+= 4) {
+        resultDataArr[i] = resultDataArr[i] + frameDataArr[i];
+        resultDataArr[i+1] = resultDataArr[i + 1] + frameDataArr[i+1];
+        resultDataArr[i+2] = resultDataArr[i + 2] + frameDataArr[i+2];
+        
+    }
+    // should be called once, at the end ofstuff
+    resultContext.putImageData(resultData, 0, 0);
+    setTimeout(addFrame, 1);
+}
+
+var streaming = false;
+video.addEventListener('canplay', function(ev){
+  if (!streaming) {
+    height = video.videoHeight;
+    width = video.videoWidth;
+      
+    frame.style['width'] = width;
+    frame.style['height'] = height;
+    resultCanvas.style['width'] = width;
+    resultCanvas.style['height'] = height;
+
+    frame.setAttribute('width', width);
+    frame.setAttribute('height', height);
+    resultCanvas.setAttribute('width', width);
+    resultCanvas.setAttribute('height', height);
+
+    streaming = true;
+
+    resultContext = resultCanvas.getContext('2d');
+    resultData = resultContext.getImageData(0, 0, width, height);
+    resultDataArr = resultData.data;
+    for (var i = 0; i < resultData.data.length; i+= 4) {
+        resultDataArr[i+3] = 255;
+    }
+    
+    context = frame.getContext('2d');
+  }
+}, false);
+
+document.getElementById("start").onclick = function() {
+    keepIntegrating = true;
+    document.getElementById("exposure").classList.add("hidden");
+    document.getElementById("delay").classList.add("hidden");
+    document.getElementById("start").classList.add("hidden");
+    video.classList.add("hidden");
+    resultCanvas.classList.add("hidden");
+
+    for (var i = 0; i < resultData.data.length; i+= 4) {
+            resultDataArr[i] = 0;
+            resultDataArr[i+1] = 0;
+            resultDataArr[i+2] = 0;
+            resultDataArr[i+3] = 255;
+    }
+
+
+    setTimeout(addFrame, document.getElementById("delay").value * 1000);
+
+    setTimeout (function(){
+        keepIntegrating = false;
+        document.getElementById("exposure").classList.remove("hidden");
+        document.getElementById("delay").classList.remove("hidden");
+        document.getElementById("start").classList.remove("hidden");
+        video.classList.remove("hidden");
+        resultCanvas.classList.remove("hidden");
+    }, document.getElementById("exposure").value * 1000 + 
+    document.getElementById("delay").value * 1000);
+};
+
+
+</script>
